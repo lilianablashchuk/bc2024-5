@@ -58,6 +58,36 @@ app.put('/notes/:name', (req, res) => {
   });
 });
 
+app.delete('/notes/:name', (req, res) => {
+  const notePath = path.join(options.cache, `${req.params.name}.txt`);
+  fs.unlink(notePath, (err) => {
+      if(err) {
+          if (err.code === 'ENOENT') {
+              res.writeHead(404).end('Note not found');
+          } else {
+              res.status(500).json({ message: 'Server Error', error })
+          }
+      } else {
+          res.writeHead(200).end('Note deleted successfully!');
+      }
+  });
+});
+
+app.get('/notes', (req, res) => {
+  const notesInCache = fs.readdirSync(options.cache);
+  const notes = notesInCache.map((note) => {
+      const noteName = path.basename(note, '.txt');
+      const notePath = path.join(options.cache, note);
+      const noteText = fs.readFileSync(notePath, 'utf8');
+      return { 
+          name: noteName, 
+          text: noteText 
+      };
+  });
+  res.status(200).json(notes);
+});
+
+
 
 app.listen(options.port, options.host, (err) => {
   if (err) {
