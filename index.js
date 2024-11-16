@@ -1,44 +1,42 @@
 const { program } = require('commander');
-const { exit } = require('process');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const bodyParser = require('body-parser');
 const multer = require('multer');
+const { exit } = require('process');
+
 
 program
   .option('-h, --host <char>', 'server address')
   .option('-p, --port <int>', 'server port')
-  .option('-c, --cache <char>', 'path to directory, where cache files will be stored');
+  .option('-c, --cache <char>', 'cache directory');
 
-program.parse();
-const options = program.opts();
-
-if (!options.host) {
-  console.error('Enter host');
-  exit(1);
-}
-if (!options.port) {
-  console.error('Enter port');
-  exit(1);
-}
-if (!options.cache) {
-  console.error('Enter path to cache directory');
-  exit(1);
-}
-
-if (!fs.existsSync(options.cache)) {
-  console.error(`Cache directory does not exist: ${options.cache}`);
-  exit(1);
-}
+  program.parse();
+  const options = program.opts();
+  
+  if (!options.host || !options.port || !options.cache || !fs.existsSync(options.cache)) {
+    if (!options.host) {
+      console.error('Error: Missing host address');
+    }
+    if (!options.port) {
+      console.error('Error: Missing port');
+    }
+    if (!options.cache) {
+      console.error('Error: Missing cache directory');
+    }
+    if (options.cache && !fs.existsSync(options.cache)) {
+      console.error(`Error: Cache directory does not exist: ${options.cache}`);
+    }
+    exit(1);
+  }
 
 const app = express();
 app.use(bodyParser.text());
 app.use(multer().none());
 
 app.get('/notes/:name', (req, res) => {
-  const notePath = path.join(options.cache, `${req.params.name}.txt`);
-  fs.readFile(notePath, 'utf8', (err, data) => {
+  fs.readFile(path.join(options.cache, `${req.params.name}.txt`), 'utf8', (err, data) => {
     if (err) {
       res.status(404).send('Note not found');
     } else {
@@ -49,77 +47,52 @@ app.get('/notes/:name', (req, res) => {
 
 app.put('/notes/:name', (req, res) => {
   const notePath = path.join(options.cache, `${req.params.name}.txt`);
-  if(!fs.existsSync(notePath)) return res.status(404).send('Note not found');
-  fs.writeFile(notePath, req.body, 'utf8', (err) => {
-      if (err) {
-          return res.status(500).json({ message: 'Server Error', error: err });
-      }
-      res.status(201).send('The note was created successfully!');
+  if (!fs.existsSync(notePath)) return res.status(404).send('Note not found');
+  fs.writeFile(notePath, req.body, 'utf8', err => {
+    if (err) {
+      res.status(500).send('Server Error');
+    } else {
+      res.status(200).send('Note updated');
+    }
   });
 });
 
 app.delete('/notes/:name', (req, res) => {
-  const notePath = path.join(options.cache, `${req.params.name}.txt`);
-  fs.unlink(notePath, (err) => {
-      if(err) {
-          if (err.code === 'ENOENT') {
-              res.writeHead(404).end('Note not found');
-          } else {
-              res.status(500).json({ message: 'Server Error', error })
-          }
-      } else {
-          res.writeHead(200).end('Note deleted successfully!');
-      }
+  fs.unlink(path.join(options.cache, `${req.params.name}.txt`), err => {
+    if (err) {
+      res.status(404).send('Note not found');
+    } else {
+      res.status(200).send('Note deleted');
+    }
   });
 });
 
 app.get('/notes', (req, res) => {
-  const notesInCache = fs.readdirSync(options.cache);
-  const notes = notesInCache.map((note) => {
-      const noteName = path.basename(note, '.txt');
-      const notePath = path.join(options.cache, note);
-      const noteText = fs.readFileSync(notePath, 'utf8');
-      return { 
-          name: noteName, 
-          text: noteText 
-      };
+  const notes = fs.readdirSync(options.cache).map(note => {
+    return { 
+      name: path.basename(note, '.txt'), 
+      text: fs.readFileSync(path.join(options.cache, note), 'utf8') 
+    };
   });
   res.status(200).json(notes);
 });
 
 app.post('/write', (req, res) => {
-  const noteName = req.body.note_name;
-  const noteContent = req.body.note;
-
-  if (!noteContent) {
-    return res.status(400).send('Note content cannot be empty!');
-  }
-
-  const notePath = path.join(options.cache, `${noteName}.txt`);
-
-  if (fs.existsSync(notePath)) {
-    return res.status(400).send('A note with that name already exists!');
-  }
-
-  fs.writeFile(notePath, noteContent, 'utf-8', (err) => {
+  const notePath = path.join(options.cache, `${req.body.note_name}.txt`);
+  if (fs.existsSync(notePath)) return res.status(400).send('Note already exists');
+  fs.writeFile(notePath, req.body.note, 'utf8', err => {
     if (err) {
-      return res.status(500).json({ message: 'Server Error', error: err });
+      res.status(500).send('Server Error');
+    } else {
+      res.status(201).send('Note created');
     }
-    res.status(201).send('The note was created successfully!');
   });
 });
 
 app.get('/UploadForm.html', (req, res) => {
-  const htmlPage = fs.readFileSync('./UploadForm.html');
-  res.writeHead(200, { 'Content-Type': 'text/html' });
-  res.end(htmlPage);
+  res.status(200).sendFile(path.join(__dirname, 'UploadForm.html'));
 });
 
-
-app.listen(options.port, options.host, (err) => {
-  if (err) {
-    console.error(`Failed to start server: ${err.message}`);
-    exit(1);
-  }
+app.listen(options.port, options.host, () => {
   console.log(`Server running at http://${options.host}:${options.port}`);
 });
