@@ -6,7 +6,6 @@ const bodyParser = require('body-parser');
 const multer = require('multer');
 const { exit } = require('process');
 
-
 program
   .option('-h, --host <char>', 'server address')
   .option('-p, --port <int>', 'server port')
