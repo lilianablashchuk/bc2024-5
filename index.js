@@ -87,6 +87,33 @@ app.get('/notes', (req, res) => {
   res.status(200).json(notes);
 });
 
+app.post('/write', (req, res) => {
+  const noteName = req.body.note_name;
+  const noteContent = req.body.note;
+
+  if (!noteContent) {
+    return res.status(400).send('Note content cannot be empty!');
+  }
+
+  const notePath = path.join(options.cache, `${noteName}.txt`);
+
+  if (fs.existsSync(notePath)) {
+    return res.status(400).send('A note with that name already exists!');
+  }
+
+  fs.writeFile(notePath, noteContent, 'utf-8', (err) => {
+    if (err) {
+      return res.status(500).json({ message: 'Server Error', error: err });
+    }
+    res.status(201).send('The note was created successfully!');
+  });
+});
+
+app.get('/UploadForm.html', (req, res) => {
+  const htmlPage = fs.readFileSync('./UploadForm.html');
+  res.writeHead(200, { 'Content-Type': 'text/html' });
+  res.end(htmlPage);
+});
 
 
 app.listen(options.port, options.host, (err) => {
