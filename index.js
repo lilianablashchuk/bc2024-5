@@ -105,7 +105,7 @@ app.get('/UploadForm.html', (req, res) => {
     const htmlPage = fs.readFileSync('./UploadForm.html', 'utf8');
     res.status(200).contentType('text/html').send(htmlPage);
   } catch (err) {
-    res.status(500).send('Failed to load HTML page');
+    res.status(500).send('Failed to load HTML form');
   }
 });
 
